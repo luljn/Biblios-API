@@ -6,7 +6,7 @@ Biblios-API
 
 This is API of Biblios.
 
-- find Biblios here : https://github.com/luljn/Biblios
+- find Biblios here : <a href="https://github.com/luljn/Biblios" target="_blank" rel="noreferrer"> Biblios repository </a> 
 
 # Tools used
 
