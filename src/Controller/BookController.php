@@ -8,10 +8,10 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class BookController extends AbstractController
 {
-    #[Route('/book', name: 'app_book')]
-    public function index(): JsonResponse
+    #[Route('/api/books', name: 'app_book')]
+    public function getAllBooks(): JsonResponse
     {
-        return $this->json([
+        return new JsonResponse([
             'message' => 'Welcome to your new controller!',
             'path' => 'src/Controller/BookController.php',
         ]);
