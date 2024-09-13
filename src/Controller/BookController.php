@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
-#[Route('/api/books', name: 'app_book', methods: ['GET'])]
+#[Route('/api/books')]
 class BookController extends AbstractController
 {
     #[Route('', name: 'app_book', methods: ['GET'])]
