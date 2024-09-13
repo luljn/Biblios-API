@@ -2,18 +2,21 @@
 
 namespace App\Controller;
 
+use App\Repository\AuthorRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Serializer\SerializerInterface;
 
+#[Route('/api/authors')]
 class AuthorController extends AbstractController
 {
-    #[Route('/author', name: 'app_author')]
-    public function index(): JsonResponse
+    #[Route('', name: 'app_author', methods: ['GET'])]
+    public function getAllAuthor(AuthorRepository $repository, SerializerInterface $serializer): JsonResponse
     {
-        return $this->json([
-            'message' => 'Welcome to your new controller!',
-            'path' => 'src/Controller/AuthorController.php',
-        ]);
+        $authorList = $repository->findAll();
+        $jsonAuthorList = $serializer->serialize($authorList, 'json', ['groups' => 'getAuthors']);
+        return new JsonResponse($jsonAuthorList, Response::HTTP_OK, [], true);
     }
 }
