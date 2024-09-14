@@ -27,7 +27,7 @@ class BookController extends AbstractController
         return new JsonResponse($jsonBookList, Response::HTTP_OK, [], true);
     }
 
-    #[Route('/add', name: 'app_book_create', requirements: ['id' => '\d+'], methods: ['POST'])]
+    #[Route('/add', name: 'app_book_create', methods: ['POST'])]
     public function createBook(Request $request, SerializerInterface $serializer, EntityManagerInterface $manager,
                                 UrlGeneratorInterface $urlGenerator, AuthorRepository $authorRepository): JsonResponse
     {
