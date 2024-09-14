@@ -14,7 +14,7 @@ use Symfony\Component\Serializer\SerializerInterface;
 class AuthorController extends AbstractController
 {
     #[Route('', name: 'app_author', methods: ['GET'])]
-    public function getAllAuthor(AuthorRepository $repository, SerializerInterface $serializer): JsonResponse
+    public function getAllAuthors(AuthorRepository $repository, SerializerInterface $serializer): JsonResponse
     {
         $authorList = $repository->findAll();
         $jsonAuthorList = $serializer->serialize($authorList, 'json', ['groups' => 'getAuthors']);
@@ -22,7 +22,7 @@ class AuthorController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_author_detail', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function getDetailBook(Author $author, SerializerInterface $serializer): JsonResponse
+    public function getDetailAuthor(Author $author, SerializerInterface $serializer): JsonResponse
     {
         $jsonAuthor = $serializer->serialize($author, 'json', ['groups' => 'getAuthors']);
         return new JsonResponse($jsonAuthor, Response::HTTP_OK, [], true);
