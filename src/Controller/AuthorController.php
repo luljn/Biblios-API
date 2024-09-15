@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 
 #[Route('/api/authors')]
@@ -44,9 +45,14 @@ class AuthorController extends AbstractController
     }
 
     #[Route('/edit/{id}', name: 'app_author_update', requirements: ['id' => '\d+'], methods: ['PUT'])]
-    public function updateAuthor()
+    public function updateAuthor(Request $request, SerializerInterface $serializer, EntityManagerInterface $manager,
+                                    Author $currentAuthor)
     {
+        $updatedAuthor = $serializer->deserialize($request->getContent(), Author::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $currentAuthor]);
+        $manager->persist($updatedAuthor);
+        $manager->flush();
 
+        return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
     }
 
     #[Route('/delete/{id}', name: 'app_author_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
