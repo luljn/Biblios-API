@@ -62,7 +62,7 @@ class BookController extends AbstractController
 
     #[Route('/edit/{id}', name: 'app_book_update', requirements: ['id' => '\d+'], methods: ['PUT'])]
     public function updateBook(Request $request, SerializerInterface $serializer, EntityManagerInterface $manager,
-                                Book $currentBook, UrlGeneratorInterface $urlGenerator, AuthorRepository $authorRepository): JsonResponse
+                                Book $currentBook, AuthorRepository $authorRepository, ValidatorInterface $validator): JsonResponse
     {
         $updatedBook = $serializer->deserialize($request->getContent(), Book::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $currentBook]);
         
@@ -71,14 +71,13 @@ class BookController extends AbstractController
 
         $updatedBook->setAuthor($authorRepository->find($idAuthor));
 
+        $errors = $validator->validate($updatedBook);
+        if($errors->count() > 0){
+            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+        }
         $manager->persist($updatedBook);
         $manager->flush();
 
-        // $jsonBook = $serializer->serialize($updatedBook, 'json', ['groups' => 'getBooks']);
-
-        // $location = $urlGenerator->generate('app_book_detail', ['id' => $updatedBook->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
-
-        // return new JsonResponse($jsonBook, Response::HTTP_CREATED, ["Location" => $location], true);
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
