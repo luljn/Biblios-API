@@ -12,3 +12,7 @@
 ###> lexik/jwt-authentication-bundle ###
 /config/jwt/*.pem
 ###< lexik/jwt-authentication-bundle ###
+
+###> JWT PEM pass phrase ###
+PemPassPhrase.txt
+###< JWT PEM pass phrase ###
