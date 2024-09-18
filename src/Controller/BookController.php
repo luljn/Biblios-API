@@ -31,13 +31,13 @@ class BookController extends AbstractController
 
         $idCache = "getAllBooks-" . $page . "-" . $limit;
 
-        $bookList = $cache->get($idCache, function (ItemInterface $item) use ($bookRepository, $page, $limit) {
+        $jsonBookList = $cache->get($idCache, function (ItemInterface $item) use ($bookRepository, $page, $limit, $serializer) {
             echo ("L'ELEMENT N'EST PAS ENCORE EN CACHE !\n");
             $item->tag("booksCache");
-            return $bookRepository->findAllWithPagination($page, $limit);
+            $bookList = $bookRepository->findAllWithPagination($page, $limit);
+            return $serializer->serialize($bookList, 'json', ['groups' => 'getBooks']);
         });
         
-        $jsonBookList = $serializer->serialize($bookList, 'json', ['groups' => 'getBooks']);
         return new JsonResponse($jsonBookList, Response::HTTP_OK, [], true);
     }
 
