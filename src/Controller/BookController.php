@@ -98,8 +98,9 @@ class BookController extends AbstractController
 
     #[Route('/delete/{id}', name: 'app_book_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
     #[IsGranted('ROLE_ADMIN', message: "Vous n'avez pas les droits suffisants pour supprimer un livre")]
-    public function deleteBook(Book $book, EntityManagerInterface $manager): JsonResponse
+    public function deleteBook(Book $book, EntityManagerInterface $manager, TagAwareCacheInterface $cache): JsonResponse
     {
+        $cache->invalidateTags(['booksCache']);
         $manager->remove($book);
         $manager->flush();
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
