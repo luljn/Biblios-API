@@ -11,25 +11,48 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 #[Route('/api/authors')]
 class AuthorController extends AbstractController
 {
     #[Route('', name: 'app_author', methods: ['GET'])]
-    public function getAllAuthors(AuthorRepository $repository, SerializerInterface $serializer): JsonResponse
+    public function getAllAuthors(AuthorRepository $repository, SerializerInterface $serializer, Request $request,
+                                    TagAwareCacheInterface $cache): JsonResponse
     {
-        $authorList = $repository->findAll();
-        $jsonAuthorList = $serializer->serialize($authorList, 'json', ['groups' => 'getAuthors']);
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
+
+        $idCache = "getAllBooks-" . $page . "-" . $limit;
+
+        $jsonAuthorList = $cache->get($idCache, function (ItemInterface $item) use ($repository, $page, $limit, $serializer) {
+            echo ("L'ELEMENT N'EST PAS ENCORE EN CACHE !\n");
+            $item->tag("authorsCache");
+            $authorList = $repository->findAllWithPagination($page, $limit);
+            return $serializer->serialize($authorList, 'json', ['groups' => 'getBooks']);
+        });
+        
         return new JsonResponse($jsonAuthorList, Response::HTTP_OK, [], true);
     }
 
     #[Route('/add', name: 'app_author_create', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN', message: "Vous n'avez pas les droits suffisants pour ajouter un autheur")]
     public function createAuthor(Request $request, SerializerInterface $serializer, EntityManagerInterface $manager,
-                                    UrlGeneratorInterface $urlGenerator) : JsonResponse
+                                    UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator) : JsonResponse
     {
         $author = $serializer->deserialize($request->getContent(), Author::class, 'json');
+
+        $errors = $validator->validate($author);
+        if ($errors->count() > 0){
+
+            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+        }
+
         $manager->persist($author);
         $manager->flush();
         $jsonAuthor = $serializer->serialize($author, 'json', ['groups' => 'getAuthors']);
@@ -45,10 +68,18 @@ class AuthorController extends AbstractController
     }
 
     #[Route('/edit/{id}', name: 'app_author_update', requirements: ['id' => '\d+'], methods: ['PUT'])]
+    #[IsGranted('ROLE_ADMIN', message: "Vous n'avez pas les droits suffisants pour modifier un autheur")]
     public function updateAuthor(Request $request, SerializerInterface $serializer, EntityManagerInterface $manager,
-                                    Author $currentAuthor)
+                                    Author $currentAuthor, ValidatorInterface $validator)
     {
         $updatedAuthor = $serializer->deserialize($request->getContent(), Author::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $currentAuthor]);
+
+        $errors = $validator->validate($updatedAuthor);
+        if ($errors->count() > 0){
+
+            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+        }
+
         $manager->persist($updatedAuthor);
         $manager->flush();
 
@@ -56,8 +87,10 @@ class AuthorController extends AbstractController
     }
 
     #[Route('/delete/{id}', name: 'app_author_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
-    public function deleteAuthor(Author $author, EntityManagerInterface $manager) : JsonResponse
+    #[IsGranted('ROLE_ADMIN', message: "Vous n'avez pas les droits suffisants pour supprimer un autheur")]
+    public function deleteAuthor(Author $author, EntityManagerInterface $manager, TagAwareCacheInterface $cache) : JsonResponse
     {
+        $cache->invalidateTags(['booksCache']);
         $manager->remove($author);
         $manager->flush();
         dd($author->getBooks());

@@ -12,24 +12,39 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 #[Route('/api/books')]
 class BookController extends AbstractController
 {
     #[Route('', name: 'app_book', methods: ['GET'])]
-    public function getAllBooks(BookRepository $bookRepository, SerializerInterface $serializer): JsonResponse
+    public function getAllBooks(BookRepository $bookRepository, SerializerInterface $serializer, Request $request,
+                                TagAwareCacheInterface $cache): JsonResponse
     {
-        $bookList = $bookRepository->findAll();
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
+
+        $idCache = "getAllBooks-" . $page . "-" . $limit;
+
+        $jsonBookList = $cache->get($idCache, function (ItemInterface $item) use ($bookRepository, $page, $limit, $serializer) {
+            echo ("L'ELEMENT N'EST PAS ENCORE EN CACHE !\n");
+            $item->tag("booksCache");
+            $bookList = $bookRepository->findAllWithPagination($page, $limit);
+            return $serializer->serialize($bookList, 'json', ['groups' => 'getBooks']);
+        });
         
-        $jsonBookList = $serializer->serialize($bookList, 'json', ['groups' => 'getBooks']);
         return new JsonResponse($jsonBookList, Response::HTTP_OK, [], true);
     }
 
     #[Route('/add', name: 'app_book_create', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN', message: "Vous n'avez pas les droits suffisants pour ajouter un livre")]
     public function createBook(Request $request, SerializerInterface $serializer, EntityManagerInterface $manager,
-                                UrlGeneratorInterface $urlGenerator, AuthorRepository $authorRepository): JsonResponse
+                                UrlGeneratorInterface $urlGenerator, AuthorRepository $authorRepository, ValidatorInterface $validator): JsonResponse
     {
         $book = $serializer->deserialize($request->getContent(), Book::class, 'json');
         
@@ -38,6 +53,10 @@ class BookController extends AbstractController
 
         $book->setAuthor($authorRepository->find($idAuthor));
 
+        $errors = $validator->validate($book);
+        if($errors->count() > 0){
+            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+        }
         $manager->persist($book);
         $manager->flush();
 
@@ -56,8 +75,9 @@ class BookController extends AbstractController
     }
 
     #[Route('/edit/{id}', name: 'app_book_update', requirements: ['id' => '\d+'], methods: ['PUT'])]
+    #[IsGranted('ROLE_ADMIN', message: "Vous n'avez pas les droits suffisants pour modifier un livre")]
     public function updateBook(Request $request, SerializerInterface $serializer, EntityManagerInterface $manager,
-                                Book $currentBook, UrlGeneratorInterface $urlGenerator, AuthorRepository $authorRepository): JsonResponse
+                                Book $currentBook, AuthorRepository $authorRepository, ValidatorInterface $validator): JsonResponse
     {
         $updatedBook = $serializer->deserialize($request->getContent(), Book::class, 'json', [AbstractNormalizer::OBJECT_TO_POPULATE => $currentBook]);
         
@@ -66,20 +86,21 @@ class BookController extends AbstractController
 
         $updatedBook->setAuthor($authorRepository->find($idAuthor));
 
+        $errors = $validator->validate($updatedBook);
+        if($errors->count() > 0){
+            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+        }
         $manager->persist($updatedBook);
         $manager->flush();
 
-        // $jsonBook = $serializer->serialize($updatedBook, 'json', ['groups' => 'getBooks']);
-
-        // $location = $urlGenerator->generate('app_book_detail', ['id' => $updatedBook->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
-
-        // return new JsonResponse($jsonBook, Response::HTTP_CREATED, ["Location" => $location], true);
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     #[Route('/delete/{id}', name: 'app_book_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
-    public function deleteBook(Book $book, EntityManagerInterface $manager): JsonResponse
+    #[IsGranted('ROLE_ADMIN', message: "Vous n'avez pas les droits suffisants pour supprimer un livre")]
+    public function deleteBook(Book $book, EntityManagerInterface $manager, TagAwareCacheInterface $cache): JsonResponse
     {
+        $cache->invalidateTags(['booksCache']);
         $manager->remove($book);
         $manager->flush();
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
